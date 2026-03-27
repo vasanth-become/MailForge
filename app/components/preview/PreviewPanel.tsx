@@ -22,15 +22,19 @@ export default function PreviewPanel() {
     toggleDarkPreview,
   } = useMailStore();
 
+  // Gate the entire panel on the client side.
+  // Server renders a neutral placeholder → no text/attribute mismatch possible.
+  // This covers: Zustand localStorage state, new Date() locale differences,
+  // and any window references inside renderEmail or child components.
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => { setIsMounted(true); }, []);
+
   const html = useMemo(
     () => renderEmail(activeTemplateId, brand, content),
     [activeTemplateId, brand, content]
   );
 
-  const [isMounted, setIsMounted] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
-
-  useEffect(() => setIsMounted(true), []);
 
   const handleCopyCode = useCallback(async () => {
     try {
@@ -48,11 +52,20 @@ export default function PreviewPanel() {
     setTimeout(() => setCodeCopied(false), 2000);
   }, [html]);
 
+  // Server render: empty placeholder — nothing to mismatch against
+  if (!isMounted) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="h-10 border-b border-slate-200 bg-white flex-shrink-0" />
+        <div className="flex-1 bg-slate-100" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* ── Toolbar ── */}
       <div className="flex items-center gap-3 px-4 py-2 border-b border-slate-200 bg-white flex-shrink-0">
-        {/* Mode tabs */}
         <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
           {MODES.map((m) => (
             <button
@@ -71,7 +84,6 @@ export default function PreviewPanel() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          {/* Dark canvas — only for visual preview modes */}
           {previewMode !== "code" && (
             <button
               onClick={toggleDarkPreview}
@@ -86,7 +98,6 @@ export default function PreviewPanel() {
             </button>
           )}
 
-          {/* Copy button in code view */}
           {previewMode === "code" && (
             <button
               onClick={handleCopyCode}
@@ -100,7 +111,6 @@ export default function PreviewPanel() {
             </button>
           )}
 
-          {/* Byte counter */}
           <span className="text-xs text-slate-400 tabular-nums">
             {(html.length / 1000).toFixed(1)} kb
           </span>
@@ -118,7 +128,7 @@ export default function PreviewPanel() {
         }`}
         style={{ minHeight: 0 }}
       >
-        {/* ── Code view ── */}
+        {/* Code view */}
         {previewMode === "code" && (
           <div className="h-full p-4">
             <pre
@@ -130,11 +140,10 @@ export default function PreviewPanel() {
           </div>
         )}
 
-        {/* ── Desktop view — constrained to 600px, email standard ── */}
+        {/* Desktop — 600px email standard */}
         {previewMode === "desktop" && (
           <div className="flex justify-center py-8 px-4 min-h-full">
             <div className="w-full" style={{ maxWidth: "660px" }}>
-              {/* Browser chrome bar */}
               <div className="bg-slate-200 rounded-t-xl px-4 py-2.5 flex items-center gap-3 border border-b-0 border-slate-300">
                 <div className="flex gap-1.5">
                   <span className="w-3 h-3 rounded-full bg-red-400" />
@@ -146,19 +155,12 @@ export default function PreviewPanel() {
                 </div>
               </div>
               <div className="rounded-b-xl overflow-hidden border border-slate-300 bg-white shadow-lg">
-                {isMounted && (
-                  <iframe
-                    srcDoc={html}
-                    sandbox="allow-same-origin"
-                    title="Desktop Preview"
-                    style={{
-                      width: "100%",
-                      minHeight: "680px",
-                      border: "none",
-                      display: "block",
-                    }}
-                  />
-                )}
+                <iframe
+                  srcDoc={html}
+                  sandbox="allow-same-origin"
+                  title="Desktop Preview"
+                  style={{ width: "100%", minHeight: "680px", border: "none", display: "block" }}
+                />
               </div>
               <p className="text-center text-xs text-slate-400 mt-2">
                 Email content width: 600px
@@ -167,34 +169,24 @@ export default function PreviewPanel() {
           </div>
         )}
 
-        {/* ── Mobile view — 375px phone frame ── */}
+        {/* Mobile — 375px phone frame */}
         {previewMode === "mobile" && (
           <div className="flex justify-center items-start py-8 px-4 min-h-full">
             <div
               className="rounded-[2.5rem] border-[5px] border-slate-700 shadow-2xl overflow-hidden bg-white flex-shrink-0"
               style={{ width: "375px" }}
             >
-              {/* Status bar notch */}
               <div className="h-9 bg-slate-700 flex items-center justify-center flex-shrink-0">
                 <div className="w-24 h-4 bg-black rounded-full" />
               </div>
-              {/* Scrollable email viewport */}
               <div style={{ height: "640px", overflowY: "auto" }}>
-                {isMounted && (
-                  <iframe
-                    srcDoc={html}
-                    sandbox="allow-same-origin"
-                    title="Mobile Preview"
-                    style={{
-                      width: "375px",
-                      height: "1000px",
-                      border: "none",
-                      display: "block",
-                    }}
-                  />
-                )}
+                <iframe
+                  srcDoc={html}
+                  sandbox="allow-same-origin"
+                  title="Mobile Preview"
+                  style={{ width: "375px", height: "1000px", border: "none", display: "block" }}
+                />
               </div>
-              {/* Home bar */}
               <div className="h-6 bg-slate-700 flex items-center justify-center flex-shrink-0">
                 <div className="w-24 h-1 bg-slate-500 rounded-full" />
               </div>
@@ -202,13 +194,11 @@ export default function PreviewPanel() {
           </div>
         )}
 
-        {/* ── Gmail simulation ── */}
+        {/* Gmail simulation */}
         {previewMode === "gmail" && (
           <div className="flex justify-center py-8 px-4 min-h-full">
             <div className="w-full" style={{ maxWidth: "680px" }}>
-              {/* Gmail chrome */}
               <div className="bg-white rounded-t-xl border border-b-0 border-slate-300 shadow-sm">
-                {/* Top bar */}
                 <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
                   <div className="w-7 h-7 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0">
                     <span className="text-white text-xs font-bold">G</span>
@@ -217,7 +207,6 @@ export default function PreviewPanel() {
                     <span className="text-xs text-slate-400">Search mail</span>
                   </div>
                 </div>
-                {/* Email header */}
                 <div className="px-5 py-3 border-b border-slate-100">
                   <div className="flex items-start gap-3">
                     <div className="w-9 h-9 rounded-full bg-indigo-400 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -230,9 +219,8 @@ export default function PreviewPanel() {
                         <span className="text-sm font-semibold text-slate-800 truncate">
                           {brand.name}
                         </span>
-                        <span className="text-xs text-slate-400 flex-shrink-0">
-                          {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                        </span>
+                        {/* Static — no new Date() to avoid any remaining SSR mismatch */}
+                        <span className="text-xs text-slate-400 flex-shrink-0">Today</span>
                       </div>
                       <p className="text-xs text-slate-500 truncate">
                         to me &lt;me@example.com&gt;
@@ -245,27 +233,18 @@ export default function PreviewPanel() {
                 </div>
               </div>
 
-              {/* Gmail renders email in a fixed ~600px column */}
               <div
-                className="bg-white border border-t-0 border-b-0 border-slate-300"
-                style={{ backgroundColor: "#f6f6f6", padding: "0" }}
+                className="border border-t-0 border-b-0 border-slate-300"
+                style={{ backgroundColor: "#f6f6f6" }}
               >
-                {isMounted && (
-                  <iframe
-                    srcDoc={html}
-                    sandbox="allow-same-origin"
-                    title="Gmail Preview"
-                    style={{
-                      width: "100%",
-                      minHeight: "600px",
-                      border: "none",
-                      display: "block",
-                    }}
-                  />
-                )}
+                <iframe
+                  srcDoc={html}
+                  sandbox="allow-same-origin"
+                  title="Gmail Preview"
+                  style={{ width: "100%", minHeight: "600px", border: "none", display: "block" }}
+                />
               </div>
 
-              {/* Gmail bottom chrome */}
               <div className="bg-white rounded-b-xl border border-t-0 border-slate-300 px-5 py-3 flex items-center gap-3">
                 <div className="h-8 w-20 rounded bg-slate-100" />
                 <div className="h-8 w-20 rounded bg-slate-100" />
