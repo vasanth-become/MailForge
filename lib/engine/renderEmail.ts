@@ -318,7 +318,10 @@ function renderDiscount(brand: BrandSettings, content: TemplateContent): string 
 
 function renderNewsletter(brand: BrandSettings, content: TemplateContent): string {
   const tintBg = lighten(brand.primaryColor, 0.94);
-  const month = new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  // Compute month string outside the HTML string so it's part of the JS bundle,
+  // not evaluated independently on server vs. client (avoids locale mismatch).
+  const now = new Date();
+  const month = now.toLocaleString("en-US", { month: "long", year: "numeric" });
 
   // Article 1: image stacked above text (single column, no side-by-side)
   const article1Image = content.imageUrl

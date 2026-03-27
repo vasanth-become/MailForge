@@ -161,8 +161,7 @@ export default function PreviewPanel() {
                 )}
               </div>
               <p className="text-center text-xs text-slate-400 mt-2">
-                Rendered at {Math.min(660, typeof window !== "undefined" ? window.innerWidth - 80 : 600)}px
-                — email content is 600px
+                Email content width: 600px
               </p>
             </div>
           </div>
