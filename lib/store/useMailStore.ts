@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type PreviewMode = "desktop" | "mobile" | "gmail";
+export type PreviewMode = "desktop" | "mobile" | "gmail" | "code";
 export type TemplateId = "product-launch" | "discount" | "newsletter";
 
 export interface BrandSettings {

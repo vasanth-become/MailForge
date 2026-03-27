@@ -1,16 +1,8 @@
 import type { BrandSettings, TemplateContent, TemplateId } from "@/lib/store/useMailStore";
 
 /* ─────────────────────────────────────────────
-   Utility helpers
+   Utilities
 ───────────────────────────────────────────── */
-
-function hex2rgb(hex: string): string {
-  const clean = hex.replace("#", "");
-  const r = parseInt(clean.substring(0, 2), 16);
-  const g = parseInt(clean.substring(2, 4), 16);
-  const b = parseInt(clean.substring(4, 6), 16);
-  return `${r}, ${g}, ${b}`;
-}
 
 function lighten(hex: string, amount = 0.9): string {
   const clean = hex.replace("#", "");
@@ -24,8 +16,20 @@ function lighten(hex: string, amount = 0.9): string {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 /* ─────────────────────────────────────────────
-   Shared building blocks (table-based)
+   Document wrapper
+   - 600px container with fluid width fallback
+   - Media queries are progressive enhancement only:
+     the layout must already work at 375px without them.
+   - No display:flex, display:grid anywhere in the body.
 ───────────────────────────────────────────── */
 
 function wrapDocument(body: string, brand: BrandSettings): string {
@@ -36,48 +40,51 @@ function wrapDocument(body: string, brand: BrandSettings): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="x-apple-disable-message-reformatting" />
-  <title>${brand.name} Email</title>
+  <title>${escapeHtml(brand.name)} Email</title>
   <!--[if mso]>
-  <noscript>
-    <xml>
-      <o:OfficeDocumentSettings>
-        <o:PixelsPerInch>96</o:PixelsPerInch>
-      </o:OfficeDocumentSettings>
-    </xml>
-  </noscript>
+  <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
   <![endif]-->
-  <style>
-    @media only screen and (max-width: 600px) {
-      .email-container { width: 100% !important; }
-      .mobile-full { width: 100% !important; display: block !important; }
-      .mobile-pad { padding: 16px !important; }
-      .hero-img { height: 200px !important; }
-      .cta-btn { width: 80% !important; }
-      .discount-box { padding: 20px !important; }
-      .article-col { width: 100% !important; display: block !important; }
+  <style type="text/css">
+    /* Reset */
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+
+    /* Progressive enhancement only — layout works without these */
+    @media only screen and (max-width: 620px) {
+      .email-body-cell { padding: 24px 16px !important; }
+      .content-cell    { padding: 28px 20px !important; }
+      .narrow-pad      { padding: 20px !important; }
     }
   </style>
 </head>
-<body style="margin:0;padding:0;background-color:#f4f4f7;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
-<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f4f4f7;">
+<body style="margin:0;padding:0;background-color:#f0f0f5;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;">
+<!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f0f0f5;"><tr><td><![endif]-->
+<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="#f0f0f5">
   <tr>
-    <td align="center" style="padding:24px 16px;">
+    <td class="email-body-cell" align="center" style="padding:32px 16px;">
       ${body}
     </td>
   </tr>
 </table>
+<!--[if mso | IE]></td></tr></table><![endif]-->
 </body>
 </html>`;
 }
 
+/* ─────────────────────────────────────────────
+   Shared blocks
+───────────────────────────────────────────── */
+
 function renderHeader(brand: BrandSettings): string {
+  // Logo: cap at 140px wide, fluid below that
   const logo = brand.logoUrl
-    ? `<img src="${brand.logoUrl}" alt="${brand.name}" width="120" style="display:block;max-width:120px;height:auto;border:0;" />`
-    : `<span style="font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">${brand.name}</span>`;
+    ? `<img src="${escapeHtml(brand.logoUrl)}" alt="${escapeHtml(brand.name)}" width="140" style="display:block;width:auto;max-width:140px;height:auto;margin:0 auto;" />`
+    : `<span style="font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;font-family:Arial,sans-serif;">${escapeHtml(brand.name)}</span>`;
 
   return `
     <tr>
-      <td style="background-color:${brand.primaryColor};padding:24px 32px;text-align:center;border-radius:8px 8px 0 0;">
+      <td align="center" bgcolor="${brand.primaryColor}" style="background-color:${brand.primaryColor};padding:24px 32px;text-align:center;border-radius:8px 8px 0 0;">
         ${logo}
       </td>
     </tr>`;
@@ -86,246 +93,322 @@ function renderHeader(brand: BrandSettings): string {
 function renderFooter(brand: BrandSettings): string {
   return `
     <tr>
-      <td style="background-color:#2d2d2d;padding:24px 32px;text-align:center;border-radius:0 0 8px 8px;">
-        <p style="margin:0 0 8px 0;font-size:13px;color:#a0a0a0;">${brand.footerText}</p>
-        <p style="margin:0;font-size:12px;color:#6b6b6b;">
+      <td align="center" bgcolor="#2d2d2d" style="background-color:#2d2d2d;padding:24px 32px;text-align:center;border-radius:0 0 8px 8px;">
+        <p style="margin:0 0 8px 0;font-size:13px;color:#a0a0a0;font-family:Arial,sans-serif;line-height:1.5;">${escapeHtml(brand.footerText)}</p>
+        <p style="margin:0;font-size:12px;color:#6b6b6b;font-family:Arial,sans-serif;">
           <a href="#" style="color:#6b6b6b;text-decoration:underline;">Unsubscribe</a>
-          &nbsp;·&nbsp;
+          &nbsp;&middot;&nbsp;
           <a href="#" style="color:#6b6b6b;text-decoration:underline;">Privacy Policy</a>
         </p>
       </td>
     </tr>`;
 }
 
+/**
+ * VML-safe CTA button.
+ * Uses a nested table so width is determined by content (not a fixed % of parent).
+ * Works in Outlook (VML path), Gmail, Apple Mail, and all mobile clients.
+ */
 function renderCta(text: string, link: string, color: string): string {
-  return `
-    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin:0 auto;">
-      <tr>
-        <td style="border-radius:6px;background-color:${color};">
-          <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${link}" style="height:48px;v-text-anchor:middle;width:200px;" arcsize="10%" stroke="f" fillcolor="${color}"><w:anchorlock/><center style="color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;">${text}</center></v:roundrect><![endif]-->
-          <!--[if !mso]><!-->
-          <a href="${link}" class="cta-btn" target="_blank" style="background-color:${color};border-radius:6px;color:#ffffff;display:inline-block;font-family:Arial,sans-serif;font-size:15px;font-weight:700;line-height:48px;text-align:center;text-decoration:none;min-width:200px;padding:0 24px;-webkit-text-size-adjust:none;">${text}</a>
-          <!--<![endif]-->
-        </td>
-      </tr>
-    </table>`;
+  const safeLink = escapeHtml(link || "#");
+  const safeText = escapeHtml(text || "Click Here");
+  return `<!--[if mso]>
+  <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word"
+    href="${safeLink}" style="height:48px;v-text-anchor:middle;width:220px;" arcsize="12%"
+    stroke="f" fillcolor="${color}">
+    <w:anchorlock/>
+    <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;">${safeText}</center>
+  </v:roundrect>
+  <![endif]--><!--[if !mso]><!-->
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse:separate;">
+    <tr>
+      <td align="center" bgcolor="${color}" style="background-color:${color};border-radius:6px;padding:0;">
+        <a href="${safeLink}" target="_blank"
+          style="background-color:${color};border-radius:6px;color:#ffffff;display:inline-block;
+                 font-family:Arial,sans-serif;font-size:15px;font-weight:700;line-height:1;
+                 padding:14px 32px;text-align:center;text-decoration:none;
+                 -webkit-text-size-adjust:none;mso-hide:all;">${safeText}</a>
+      </td>
+    </tr>
+  </table>
+  <!--<![endif]-->`;
+}
+
+/**
+ * Full-width fluid image.
+ * Uses width="600" attribute for Outlook, max-width:100% for everything else.
+ * height:auto ensures it scales proportionally — no fixed pixel heights.
+ */
+function renderHeroImage(src: string, alt: string): string {
+  return `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}"
+    width="600"
+    style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;" />`;
+}
+
+/**
+ * Inline image for article layouts.
+ * Renders full-width in a single-column layout so it works without media queries.
+ */
+function renderInlineImage(src: string, alt: string, maxPx: number): string {
+  return `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}"
+    width="${maxPx}"
+    style="display:block;width:100%;max-width:${maxPx}px;height:auto;border:0;outline:none;text-decoration:none;border-radius:6px;" />`;
 }
 
 /* ─────────────────────────────────────────────
-   Template: Product Launch
+   Template 1: Product Launch
+   Layout: fully single-column, fluid.
+   Feature block: 3 rows (not 3 columns) so it
+   renders correctly on narrow screens without
+   any media query support.
 ───────────────────────────────────────────── */
 
 function renderProductLaunch(brand: BrandSettings, content: TemplateContent): string {
   const tintBg = lighten(brand.primaryColor, 0.94);
 
-  const body = `
-  <table role="presentation" class="email-container" border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;width:100%;border-radius:8px;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
-    ${renderHeader(brand)}
-    <!-- Hero Image -->
+  const heroRow = content.imageUrl
+    ? `<tr><td style="padding:0;line-height:0;font-size:0;">${renderHeroImage(content.imageUrl, content.imageAlt)}</td></tr>`
+    : `<tr><td align="center" bgcolor="${tintBg}"
+        style="background-color:${tintBg};padding:48px 32px;text-align:center;">
+        <p style="margin:0;font-size:16px;font-weight:600;color:${brand.primaryColor};font-family:Arial,sans-serif;">
+          ${escapeHtml(brand.name)}
+        </p>
+      </td></tr>`;
+
+  // 3-row feature list — renders identically at any width, no media queries needed
+  const features = [
+    { icon: "&#x1F680;", label: "Fast", desc: "Optimized for performance" },
+    { icon: "&#x1F3AF;", label: "Precise", desc: "Built to your exact needs" },
+    { icon: "&#x1F4A1;", label: "Smart", desc: "Intelligent by design" },
+  ];
+
+  const featureRows = features
+    .map(
+      (f) => `
     <tr>
-      <td style="padding:0;line-height:0;">
-        ${
-          content.imageUrl
-            ? `<img src="${content.imageUrl}" alt="${content.imageAlt}" width="600" class="hero-img" style="display:block;width:100%;max-width:600px;height:280px;object-fit:cover;border:0;" />`
-            : `<div style="background-color:${tintBg};height:280px;display:flex;align-items:center;justify-content:center;text-align:center;padding:40px;box-sizing:border-box;"><span style="color:${brand.primaryColor};font-size:18px;font-weight:600;">Product Image</span></div>`
-        }
-      </td>
-    </tr>
-    <!-- Body -->
-    <tr>
-      <td style="background-color:#ffffff;padding:40px 40px 32px 40px;" class="mobile-pad">
-        <h1 style="margin:0 0 16px 0;font-size:28px;font-weight:700;color:#1a1a2e;line-height:1.3;">${content.heading}</h1>
-        <p style="margin:0 0 20px 0;font-size:16px;color:#555555;line-height:1.7;">${content.subtext}</p>
-        <p style="margin:0 0 32px 0;font-size:15px;color:#666666;line-height:1.7;">${content.bodyText}</p>
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+      <td align="center" style="padding:12px 32px;border-bottom:1px solid rgba(0,0,0,0.06);">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0">
           <tr>
-            <td align="center">
-              ${renderCta(content.ctaText, content.ctaLink, brand.primaryColor)}
+            <td width="40" style="font-size:24px;padding-right:12px;vertical-align:middle;">${f.icon}</td>
+            <td style="vertical-align:middle;">
+              <p style="margin:0 0 2px 0;font-size:13px;font-weight:700;color:#1a1a2e;text-transform:uppercase;letter-spacing:0.5px;font-family:Arial,sans-serif;">${f.label}</p>
+              <p style="margin:0;font-size:12px;color:#777777;font-family:Arial,sans-serif;">${f.desc}</p>
             </td>
           </tr>
         </table>
       </td>
-    </tr>
-    <!-- Feature highlights -->
+    </tr>`
+    )
+    .join("");
+
+  const body = `
+  <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" align="center"><tr><td style="width:600px;"><![endif]-->
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" align="center"
+    style="max-width:600px;width:100%;border-radius:8px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
+    ${renderHeader(brand)}
+    ${heroRow}
+    <!-- Body copy -->
     <tr>
-      <td style="background-color:${tintBg};padding:32px 40px;" class="mobile-pad">
+      <td class="content-cell" bgcolor="#ffffff"
+        style="background-color:#ffffff;padding:36px 36px 28px 36px;">
+        <h1 style="margin:0 0 14px 0;font-size:26px;font-weight:700;color:#1a1a2e;line-height:1.3;font-family:Arial,sans-serif;">${escapeHtml(content.heading)}</h1>
+        <p style="margin:0 0 16px 0;font-size:16px;color:#555555;line-height:1.7;font-family:Arial,sans-serif;">${escapeHtml(content.subtext)}</p>
+        <p style="margin:0 0 28px 0;font-size:15px;color:#666666;line-height:1.7;font-family:Arial,sans-serif;">${escapeHtml(content.bodyText)}</p>
         <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
-          <tr>
-            <td width="33%" style="padding:0 8px 0 0;text-align:center;vertical-align:top;" class="article-col">
-              <div style="font-size:28px;margin-bottom:8px;">🚀</div>
-              <p style="margin:0 0 4px 0;font-size:13px;font-weight:700;color:#1a1a2e;text-transform:uppercase;letter-spacing:0.5px;">Fast</p>
-              <p style="margin:0;font-size:12px;color:#777777;">Optimized for performance</p>
-            </td>
-            <td width="33%" style="padding:0 4px;text-align:center;vertical-align:top;" class="article-col">
-              <div style="font-size:28px;margin-bottom:8px;">🎯</div>
-              <p style="margin:0 0 4px 0;font-size:13px;font-weight:700;color:#1a1a2e;text-transform:uppercase;letter-spacing:0.5px;">Precise</p>
-              <p style="margin:0;font-size:12px;color:#777777;">Built to your exact needs</p>
-            </td>
-            <td width="33%" style="padding:0 0 0 8px;text-align:center;vertical-align:top;" class="article-col">
-              <div style="font-size:28px;margin-bottom:8px;">💡</div>
-              <p style="margin:0 0 4px 0;font-size:13px;font-weight:700;color:#1a1a2e;text-transform:uppercase;letter-spacing:0.5px;">Smart</p>
-              <p style="margin:0;font-size:12px;color:#777777;">Intelligent by design</p>
-            </td>
-          </tr>
+          <tr><td align="center">${renderCta(content.ctaText, content.ctaLink, brand.primaryColor)}</td></tr>
+        </table>
+      </td>
+    </tr>
+    <!-- Feature highlights: single-column rows, no media queries needed -->
+    <tr>
+      <td bgcolor="${tintBg}" style="background-color:${tintBg};padding:8px 0 0 0;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+          ${featureRows}
+          <tr><td style="padding-bottom:8px;"></td></tr>
         </table>
       </td>
     </tr>
     ${renderFooter(brand)}
-  </table>`;
+  </table>
+  <!--[if mso | IE]></td></tr></table><![endif]-->`;
 
   return wrapDocument(body, brand);
 }
 
 /* ─────────────────────────────────────────────
-   Template: Discount Promotion
+   Template 2: Discount Promotion
+   Layout: single-column throughout.
+   Promo code uses a table-border trick that
+   renders in all clients including Outlook.
 ───────────────────────────────────────────── */
 
 function renderDiscount(brand: BrandSettings, content: TemplateContent): string {
   const tintBg = lighten(brand.secondaryColor, 0.92);
 
+  const imageRow = content.imageUrl
+    ? `<tr>
+        <td style="padding:0 36px 28px 36px;">
+          ${renderInlineImage(content.imageUrl, content.imageAlt, 528)}
+        </td>
+      </tr>`
+    : "";
+
   const body = `
-  <table role="presentation" class="email-container" border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;width:100%;border-radius:8px;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
+  <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" align="center"><tr><td style="width:600px;"><![endif]-->
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" align="center"
+    style="max-width:600px;width:100%;border-radius:8px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
     ${renderHeader(brand)}
-    <!-- Promo Banner -->
+    <!-- Discount banner -->
     <tr>
-      <td style="background-color:${brand.secondaryColor};padding:32px 40px;text-align:center;" class="mobile-pad">
-        <p style="margin:0 0 4px 0;font-size:14px;font-weight:600;color:rgba(0,0,0,0.6);text-transform:uppercase;letter-spacing:1px;">Limited Time Offer</p>
-        <h1 style="margin:0;font-size:56px;font-weight:900;color:#ffffff;line-height:1;">${content.discountAmount || "20% OFF"}</h1>
-        <p style="margin:8px 0 0 0;font-size:15px;color:rgba(255,255,255,0.85);">Use code at checkout</p>
+      <td class="narrow-pad" align="center" bgcolor="${brand.secondaryColor}"
+        style="background-color:${brand.secondaryColor};padding:32px 32px;text-align:center;">
+        <p style="margin:0 0 6px 0;font-size:13px;font-weight:600;color:rgba(0,0,0,0.55);text-transform:uppercase;letter-spacing:1.5px;font-family:Arial,sans-serif;">Limited Time Offer</p>
+        <h1 style="margin:0;font-size:52px;font-weight:900;color:#ffffff;line-height:1;font-family:Arial,sans-serif;">${escapeHtml(content.discountAmount || "20% OFF")}</h1>
+        <p style="margin:10px 0 0 0;font-size:14px;color:rgba(255,255,255,0.85);font-family:Arial,sans-serif;">Use code at checkout</p>
       </td>
     </tr>
-    <!-- Discount Code -->
+    <!-- Promo code — dashed border via table outline, works in Outlook -->
     <tr>
-      <td style="background-color:#1a1a2e;padding:20px 40px;text-align:center;" class="mobile-pad">
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+      <td align="center" bgcolor="#1a1a2e" style="background-color:#1a1a2e;padding:20px 32px;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0">
           <tr>
-            <td style="border:2px dashed rgba(255,255,255,0.3);border-radius:6px;padding:12px 32px;">
-              <span style="font-family:'Courier New',Courier,monospace;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:4px;">${content.discountCode || "SAVE20"}</span>
+            <td align="center"
+              style="border:2px dashed rgba(255,255,255,0.35);border-radius:6px;padding:12px 28px;">
+              <span style="font-family:'Courier New',Courier,monospace;font-size:20px;font-weight:700;color:#ffffff;letter-spacing:5px;">${escapeHtml(content.discountCode || "SAVE20")}</span>
             </td>
           </tr>
         </table>
-        ${content.expiryDate ? `<p style="margin:12px 0 0 0;font-size:12px;color:#888888;">Expires: ${content.expiryDate}</p>` : ""}
+        ${content.expiryDate ? `<p style="margin:10px 0 0 0;font-size:12px;color:#888888;font-family:Arial,sans-serif;">Expires: ${escapeHtml(content.expiryDate)}</p>` : ""}
       </td>
     </tr>
     <!-- Body -->
     <tr>
-      <td style="background-color:#ffffff;padding:40px;" class="mobile-pad">
-        <h2 style="margin:0 0 16px 0;font-size:24px;font-weight:700;color:#1a1a2e;">${content.heading}</h2>
-        <p style="margin:0 0 16px 0;font-size:15px;color:#555555;line-height:1.7;">${content.subtext}</p>
-        <p style="margin:0 0 32px 0;font-size:15px;color:#666666;line-height:1.7;">${content.bodyText}</p>
-        ${
-          content.imageUrl
-            ? `<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:32px;">
-            <tr><td style="padding:0;line-height:0;">
-              <img src="${content.imageUrl}" alt="${content.imageAlt}" width="520" style="display:block;width:100%;max-width:520px;height:220px;object-fit:cover;border-radius:6px;border:0;" />
-            </td></tr>
-          </table>`
-            : ""
-        }
+      <td class="content-cell" bgcolor="#ffffff" style="background-color:#ffffff;padding:36px 36px 28px 36px;">
+        <h2 style="margin:0 0 14px 0;font-size:22px;font-weight:700;color:#1a1a2e;font-family:Arial,sans-serif;">${escapeHtml(content.heading)}</h2>
+        <p style="margin:0 0 14px 0;font-size:15px;color:#555555;line-height:1.7;font-family:Arial,sans-serif;">${escapeHtml(content.subtext)}</p>
+        <p style="margin:0 0 28px 0;font-size:15px;color:#666666;line-height:1.7;font-family:Arial,sans-serif;">${escapeHtml(content.bodyText)}</p>
+        ${imageRow}
         <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
-          <tr>
-            <td align="center">
-              ${renderCta(content.ctaText, content.ctaLink, brand.secondaryColor)}
-            </td>
-          </tr>
+          <tr><td align="center">${renderCta(content.ctaText, content.ctaLink, brand.secondaryColor)}</td></tr>
         </table>
       </td>
     </tr>
-    <!-- Urgency bar -->
+    <!-- Urgency strip -->
     <tr>
-      <td style="background-color:${tintBg};padding:16px 40px;text-align:center;border-top:1px solid rgba(0,0,0,0.06);" class="mobile-pad">
-        <p style="margin:0;font-size:13px;color:#555555;">⏰ &nbsp;This offer won't last long. Don't miss out!</p>
+      <td align="center" bgcolor="${tintBg}"
+        style="background-color:${tintBg};padding:14px 32px;border-top:1px solid rgba(0,0,0,0.06);">
+        <p style="margin:0;font-size:13px;color:#555555;font-family:Arial,sans-serif;">&#x23F0;&nbsp; This offer won't last long. Don't miss out!</p>
       </td>
     </tr>
     ${renderFooter(brand)}
-  </table>`;
+  </table>
+  <!--[if mso | IE]></td></tr></table><![endif]-->`;
 
   return wrapDocument(body, brand);
 }
 
 /* ─────────────────────────────────────────────
-   Template: Newsletter
+   Template 3: Newsletter
+   Layout: single-column throughout.
+   Articles use image-above-text stacking so
+   they are readable at any width with no media
+   queries. The gradient divider falls back to a
+   solid border in Outlook (gradients unsupported).
 ───────────────────────────────────────────── */
 
 function renderNewsletter(brand: BrandSettings, content: TemplateContent): string {
   const tintBg = lighten(brand.primaryColor, 0.94);
+  const month = new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+  // Article 1: image stacked above text (single column, no side-by-side)
+  const article1Image = content.imageUrl
+    ? `<tr>
+        <td style="padding:0 0 16px 0;line-height:0;font-size:0;">
+          ${renderInlineImage(content.imageUrl, content.imageAlt, 520)}
+        </td>
+      </tr>`
+    : "";
+
+  // Article 2 image
+  const article2Image = content.articleImageUrl
+    ? `<tr>
+        <td style="padding:0 0 14px 0;line-height:0;font-size:0;">
+          ${renderInlineImage(content.articleImageUrl, "Article image", 520)}
+        </td>
+      </tr>`
+    : "";
+
+  // Secondary article section
+  const article2 = content.articleHeading
+    ? `<tr>
+        <td class="content-cell" bgcolor="${tintBg}"
+          style="background-color:${tintBg};padding:28px 36px;">
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+            ${article2Image}
+            <tr>
+              <td>
+                <h2 style="margin:0 0 10px 0;font-size:18px;font-weight:700;color:#1a1a2e;font-family:Arial,sans-serif;">${escapeHtml(content.articleHeading)}</h2>
+                <p style="margin:0;font-size:14px;color:#555555;line-height:1.7;font-family:Arial,sans-serif;">${escapeHtml(content.articleText || "")}</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>`
+    : "";
 
   const body = `
-  <table role="presentation" class="email-container" border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;width:100%;border-radius:8px;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
+  <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" align="center"><tr><td style="width:600px;"><![endif]-->
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" align="center"
+    style="max-width:600px;width:100%;border-radius:8px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
     ${renderHeader(brand)}
-    <!-- Date bar -->
+    <!-- Issue label -->
     <tr>
-      <td style="background-color:${tintBg};padding:12px 40px;border-bottom:1px solid rgba(0,0,0,0.06);">
-        <p style="margin:0;font-size:12px;color:#888888;text-transform:uppercase;letter-spacing:1px;">Monthly Newsletter &nbsp;·&nbsp; ${new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}</p>
+      <td bgcolor="${tintBg}" style="background-color:${tintBg};padding:10px 36px;border-bottom:1px solid rgba(0,0,0,0.07);">
+        <p style="margin:0;font-size:11px;color:#888888;text-transform:uppercase;letter-spacing:1.2px;font-family:Arial,sans-serif;">Monthly Newsletter &nbsp;&middot;&nbsp; ${month}</p>
       </td>
     </tr>
-    <!-- Hero -->
+    <!-- Intro -->
     <tr>
-      <td style="background-color:#ffffff;padding:40px 40px 32px 40px;" class="mobile-pad">
-        <h1 style="margin:0 0 12px 0;font-size:30px;font-weight:700;color:#1a1a2e;line-height:1.2;">${content.heading}</h1>
-        <p style="margin:0;font-size:16px;color:#555555;line-height:1.7;">${content.subtext}</p>
+      <td class="content-cell" bgcolor="#ffffff" style="background-color:#ffffff;padding:36px 36px 24px 36px;">
+        <h1 style="margin:0 0 12px 0;font-size:28px;font-weight:700;color:#1a1a2e;line-height:1.25;font-family:Arial,sans-serif;">${escapeHtml(content.heading)}</h1>
+        <p style="margin:0;font-size:15px;color:#555555;line-height:1.7;font-family:Arial,sans-serif;">${escapeHtml(content.subtext)}</p>
       </td>
     </tr>
-    <!-- Divider -->
+    <!-- Gradient divider — solid fallback in Outlook -->
     <tr>
-      <td style="background-color:#ffffff;padding:0 40px;">
-        <div style="height:2px;background:linear-gradient(to right,${brand.primaryColor},${brand.secondaryColor});border-radius:2px;"></div>
+      <td bgcolor="#ffffff" style="background-color:#ffffff;padding:0 36px;">
+        <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%"><tr><td style="border-top:3px solid ${brand.primaryColor};font-size:0;line-height:0;">&nbsp;</td></tr></table><![endif]-->
+        <!--[if !mso]><!-->
+        <div style="height:3px;background:linear-gradient(to right,${brand.primaryColor},${brand.secondaryColor});border-radius:2px;font-size:0;line-height:0;">&nbsp;</div>
+        <!--<![endif]-->
       </td>
     </tr>
-    <!-- Main article -->
+    <!-- Article 1: image on top, text below -->
     <tr>
-      <td style="background-color:#ffffff;padding:32px 40px;" class="mobile-pad">
+      <td class="content-cell" bgcolor="#ffffff" style="background-color:#ffffff;padding:28px 36px;">
         <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+          ${article1Image}
           <tr>
-            ${
-              content.imageUrl
-                ? `<td width="200" style="padding-right:24px;vertical-align:top;" class="article-col">
-                <img src="${content.imageUrl}" alt="${content.imageAlt}" width="200" style="display:block;width:100%;max-width:200px;height:140px;object-fit:cover;border-radius:6px;border:0;" />
-              </td>`
-                : ""
-            }
-            <td style="vertical-align:top;" class="article-col">
-              <h2 style="margin:0 0 12px 0;font-size:18px;font-weight:700;color:#1a1a2e;">${content.bodyText}</h2>
-              <p style="margin:0 0 16px 0;font-size:14px;color:#666666;line-height:1.7;">${content.articleText || "Read on to discover what's new this month."}</p>
-              <a href="${content.ctaLink}" style="font-size:14px;font-weight:600;color:${brand.primaryColor};text-decoration:none;">Read more →</a>
+            <td>
+              <h2 style="margin:0 0 10px 0;font-size:18px;font-weight:700;color:#1a1a2e;font-family:Arial,sans-serif;">${escapeHtml(content.bodyText)}</h2>
+              <p style="margin:0 0 14px 0;font-size:14px;color:#555555;line-height:1.7;font-family:Arial,sans-serif;">${escapeHtml(content.articleText || "Read on to discover what's new this month.")}</p>
+              <a href="${escapeHtml(content.ctaLink || "#")}"
+                style="font-size:14px;font-weight:700;color:${brand.primaryColor};text-decoration:none;font-family:Arial,sans-serif;">Read more &#x2192;</a>
             </td>
           </tr>
         </table>
       </td>
     </tr>
-    <!-- Secondary article -->
-    ${
-      content.articleHeading
-        ? `<tr>
-      <td style="background-color:${tintBg};padding:32px 40px;" class="mobile-pad">
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
-          <tr>
-            <td style="vertical-align:top;" class="article-col">
-              <h2 style="margin:0 0 12px 0;font-size:18px;font-weight:700;color:#1a1a2e;">${content.articleHeading}</h2>
-              <p style="margin:0 0 16px 0;font-size:14px;color:#666666;line-height:1.7;">${content.articleText || ""}</p>
-            </td>
-            ${
-              content.articleImageUrl
-                ? `<td width="180" style="padding-left:24px;vertical-align:top;" class="article-col">
-              <img src="${content.articleImageUrl}" alt="Article image" width="180" style="display:block;width:100%;max-width:180px;height:120px;object-fit:cover;border-radius:6px;border:0;" />
-            </td>`
-                : ""
-            }
-          </tr>
-        </table>
-      </td>
-    </tr>`
-        : ""
-    }
+    ${article2}
     <!-- CTA -->
     <tr>
-      <td style="background-color:#ffffff;padding:32px 40px;text-align:center;" class="mobile-pad">
-        <p style="margin:0 0 24px 0;font-size:15px;color:#666666;">${content.ctaText ? "Ready to learn more?" : ""}</p>
-        ${renderCta(content.ctaText || "Read Issue", content.ctaLink, brand.primaryColor)}
+      <td align="center" bgcolor="#ffffff" style="background-color:#ffffff;padding:20px 36px 36px 36px;">
+        ${renderCta(content.ctaText || "Read Full Issue", content.ctaLink, brand.primaryColor)}
       </td>
     </tr>
     ${renderFooter(brand)}
-  </table>`;
+  </table>
+  <!--[if mso | IE]></td></tr></table><![endif]-->`;
 
   return wrapDocument(body, brand);
 }
