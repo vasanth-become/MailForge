@@ -1,5 +1,5 @@
-import AppLoader from "@/app/components/layout/AppLoader";
+import App from "@/app/components/layout/App";
 
 export default function Home() {
-  return <AppLoader />;
+  return <App />;
 }
