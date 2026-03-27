@@ -2,7 +2,10 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 export type PreviewMode = "desktop" | "mobile" | "gmail" | "code";
-export type TemplateId = "product-launch" | "discount" | "newsletter";
+
+// TemplateId is now the full template id string (e.g. "pl-hero", "dc-flash")
+// kept as a string type for flexibility as the registry grows
+export type TemplateId = string;
 
 export interface BrandSettings {
   name: string;
@@ -24,7 +27,7 @@ export interface TemplateContent {
   discountCode?: string;
   discountAmount?: string;
   expiryDate?: string;
-  // Newsletter-specific
+  // Newsletter / multi-article
   articleHeading?: string;
   articleText?: string;
   articleImageUrl?: string;
@@ -48,7 +51,7 @@ interface MailStoreState {
   isDarkPreview: boolean;
 
   setBrand: (brand: Partial<BrandSettings>) => void;
-  setActiveTemplate: (id: TemplateId) => void;
+  setActiveTemplate: (id: TemplateId, defaultContent?: Partial<TemplateContent>) => void;
   setContent: (content: Partial<TemplateContent>) => void;
   setPreviewMode: (mode: PreviewMode) => void;
   toggleDarkPreview: () => void;
@@ -71,24 +74,24 @@ const DEFAULT_CONTENT: TemplateContent = {
   subtext: "We've been working hard to bring you something amazing.",
   imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&q=80",
   imageAlt: "Product image",
-  ctaText: "Shop Now",
+  ctaText: "Get Early Access",
   ctaLink: "https://example.com",
   bodyText:
     "Discover how our new product can transform your workflow. Built with precision and designed for performance, this is the tool you've been waiting for.",
-  discountCode: "SAVE20",
-  discountAmount: "20% OFF",
+  discountCode: "SAVE30",
+  discountAmount: "30% OFF",
   expiryDate: "December 31, 2025",
   articleHeading: "Trends You Need to Know",
   articleText:
     "Stay ahead of the curve with our curated insights. This month we're covering the biggest shifts in the industry and what they mean for you.",
-  articleImageUrl: "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=600&q=80",
+  articleImageUrl: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&q=80",
 };
 
 export const useMailStore = create<MailStoreState>()(
   persist(
     (set) => ({
       brand: DEFAULT_BRAND,
-      activeTemplateId: "product-launch",
+      activeTemplateId: "pl-hero",
       content: DEFAULT_CONTENT,
       previewMode: "desktop",
       savedTemplates: [],
@@ -97,7 +100,15 @@ export const useMailStore = create<MailStoreState>()(
       setBrand: (partial) =>
         set((s) => ({ brand: { ...s.brand, ...partial } })),
 
-      setActiveTemplate: (id) => set({ activeTemplateId: id }),
+      // When switching templates, merge the template's defaultContent into
+      // the current content so new fields are populated but user edits survive.
+      setActiveTemplate: (id, defaultContent) =>
+        set((s) => ({
+          activeTemplateId: id,
+          content: defaultContent
+            ? { ...DEFAULT_CONTENT, ...defaultContent, ...s.content }
+            : s.content,
+        })),
 
       setContent: (partial) =>
         set((s) => ({ content: { ...s.content, ...partial } })),
@@ -138,8 +149,6 @@ export const useMailStore = create<MailStoreState>()(
 
       resetContent: () => set({ content: DEFAULT_CONTENT }),
     }),
-    {
-      name: "mailforge-store",
-    }
+    { name: "mailforge-store-v2" } // version bump clears old persisted TemplateId format
   )
 );
