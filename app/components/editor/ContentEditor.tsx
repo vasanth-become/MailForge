@@ -1,15 +1,21 @@
 "use client";
 
 import { useMailStore } from "@/lib/store/useMailStore";
+import { getTemplate } from "@/lib/engine/registry";
 import Input from "@/app/components/ui/Input";
 import Textarea from "@/app/components/ui/Textarea";
+import ImagePicker from "@/app/components/ui/ImagePicker";
 import SectionHeader from "@/app/components/ui/SectionHeader";
 
 export default function ContentEditor() {
   const { content, setContent, activeTemplateId } = useMailStore();
 
-  const isDiscount = activeTemplateId === "discount";
-  const isNewsletter = activeTemplateId === "newsletter";
+  // Derive category from the registry so this works with all 12 template IDs
+  const tpl = getTemplate(activeTemplateId);
+  const isDiscount   = tpl.category === "discount";
+  const isNewsletter = tpl.category === "newsletter";
+  // Templates with no dedicated image slot still accept an optional image
+  const isMinimal = tpl.layout === "minimal";
 
   return (
     <div className="space-y-4">
@@ -31,60 +37,63 @@ export default function ContentEditor() {
       />
 
       <Textarea
-        label={isNewsletter ? "Article Body" : "Body Text"}
+        label={isNewsletter ? "Body / Lead Article" : "Body Text"}
         value={content.bodyText}
         onChange={(e) => setContent({ bodyText: e.target.value })}
-        placeholder="Main body copy..."
+        placeholder="Main body copy…"
         rows={4}
       />
 
-      {/* Image */}
-      <Input
-        label="Image URL"
+      {/* ── Primary image ── */}
+      <ImagePicker
+        label="Primary Image"
         value={content.imageUrl}
-        onChange={(e) => setContent({ imageUrl: e.target.value })}
-        placeholder="https://example.com/image.jpg"
-        hint="Recommended: 600×280px for hero, 200×140px for inline"
+        onChange={(v) => setContent({ imageUrl: v })}
+        hint={
+          isMinimal
+            ? "Optional — this template works without an image"
+            : "Recommended: 600 × 280 px for hero shots"
+        }
       />
       <Input
         label="Image Alt Text"
         value={content.imageAlt}
         onChange={(e) => setContent({ imageAlt: e.target.value })}
-        placeholder="Descriptive alt text"
+        placeholder="Describe the image for screen readers"
       />
 
-      {/* CTA */}
+      {/* ── CTA ── */}
       <div className="grid grid-cols-2 gap-3">
         <Input
           label="Button Text"
           value={content.ctaText}
           onChange={(e) => setContent({ ctaText: e.target.value })}
-          placeholder="Shop Now"
+          placeholder="Get Started"
         />
         <Input
-          label="Button Link"
+          label="Button URL"
           value={content.ctaLink}
           onChange={(e) => setContent({ ctaLink: e.target.value })}
           placeholder="https://"
         />
       </div>
 
-      {/* Discount-specific fields */}
+      {/* ── Discount-specific ── */}
       {isDiscount && (
-        <div className="pt-2 border-t border-slate-100 space-y-4">
+        <div className="pt-3 border-t border-slate-100 space-y-4">
           <SectionHeader title="Promo Details" />
           <div className="grid grid-cols-2 gap-3">
             <Input
               label="Discount Amount"
               value={content.discountAmount || ""}
               onChange={(e) => setContent({ discountAmount: e.target.value })}
-              placeholder="20% OFF"
+              placeholder="30% OFF"
             />
             <Input
               label="Promo Code"
               value={content.discountCode || ""}
               onChange={(e) => setContent({ discountCode: e.target.value })}
-              placeholder="SAVE20"
+              placeholder="SAVE30"
             />
           </div>
           <Input
@@ -96,9 +105,9 @@ export default function ContentEditor() {
         </div>
       )}
 
-      {/* Newsletter-specific fields */}
+      {/* ── Newsletter-specific ── */}
       {isNewsletter && (
-        <div className="pt-2 border-t border-slate-100 space-y-4">
+        <div className="pt-3 border-t border-slate-100 space-y-4">
           <SectionHeader title="Second Article" />
           <Input
             label="Article Heading"
@@ -110,14 +119,14 @@ export default function ContentEditor() {
             label="Article Text"
             value={content.articleText || ""}
             onChange={(e) => setContent({ articleText: e.target.value })}
-            placeholder="Article content..."
+            placeholder="Article body copy…"
             rows={3}
           />
-          <Input
-            label="Article Image URL"
+          <ImagePicker
+            label="Article Image"
             value={content.articleImageUrl || ""}
-            onChange={(e) => setContent({ articleImageUrl: e.target.value })}
-            placeholder="https://example.com/article.jpg"
+            onChange={(v) => setContent({ articleImageUrl: v })}
+            hint="Optional — appears beside or above the article text"
           />
         </div>
       )}
